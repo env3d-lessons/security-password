@@ -1,0 +1,1 @@
+paste -d : <(echo "$COMMON_PASSWORDS") <(echo "$COMMON_PASSWORDS" | xargs -I{} bash -c 'echo {} | sha256sum | cut -f 1 -d " "') > rainbow.txt

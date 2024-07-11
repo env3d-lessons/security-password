@@ -4,10 +4,10 @@ All exercises to be completed on codespaces inside the assignment repo directory
 Web server configuration are all setup and the repo directory is mapped to
 
 ```
-${CODESPACE_NAME}-80/cgi-bin/
+https://${CODESPACE_NAME}-80.app.github.dev/cgi-bin/
 ```
 
-# Q1
+## Q1
 Notice that for simplicity purposes, the script 
 [https://github.com/env3d/jwt-lessons/blob/main/02-hmac-token.sh](https://github.com/env3d/jwt-lessons/blob/main/02-hmac-token.sh)
 does not actually check for passwords.  In this exercise, we explore how passwords are stored.
@@ -27,6 +27,13 @@ Using plain text to store passwords is very insecure.  If a malicious hacker got
 the hacker would gain access to all the actual passwords.  A better way to store passwords is to store 
 them as hashes.  The file [passwd_sha.txt](passwd_sha.txt) stores passwords as sha256sum.  
 
+The hash in `passwd_sha.txt` is created using the `sha256sum` utility.  For example, the entry for 
+the password 12345 is produced using the following command:
+
+```console
+echo '12345' | sha256sum | cut -f 1 -d ' '
+```
+
 Since sha256sum is a one-way hash, getting a hold of the password file does not mean you’ll have access 
 to the actual password.
 
@@ -40,19 +47,61 @@ against the passwd_sha.txt file.  Create a new entry in the passwd_sha.txt so yo
 Using hash as password storage is much more secure than plain text, since even if a hacker has access to the password 
 file (or database), they would not know the actual password. 
 
-However, since we are using a simple sha256sum, the hacker can still recover the original passwords by repeatedly 
-running sha256sum on a potential set of passwords, then comparing it against the password file.  A naive 
-approach can be found in [naive_crack.sh](naive_crack.sh).
+However, since we are using a simple sha256sum, a hacker can perform a few types of attack:
 
-When you pre-compute hashes in order to perform a brute force attack (aka dictionary attack), the 
-pre-computed hash is called a "rainbow table".  
+  - Discover password reuse:  We can simply run a unique on all the password hashes to discover
+    if a password has been reused, as follows:
 
-Write a script to recover all the passwords using this "rainbow table" concept.
-Instead of recomputing the sha256sum every single loop, we pre-compute them before the loop begins.  
-Call this solution q3.sh.
+    ```console
+    cut -f 2 -d ':' passwd_sha.txt | sort -u
+    ```
 
-HINT: double loops are very slow, but grep is very fast.  Once you have computed the "rainbow table", 
-you can grep the hash to make your program faster.
+    Looks like we have many cases of password reuse on our sample dataset ;-)
+
+  - the hacker can still recover the original passwords quickly by performing the following steps:
+    1.  pre-computing the hash on a set of potential passwords.  In the case of our sample dataset, 
+        since we know that the passwords are chosen from the first 100 entries of the common password 
+        list, I have calculated all the 100 password hashes into a file called `raninbow.txt`, delimited
+        by ':' character
+    1.  To lookup a password for a user, we simply `grep` the user's hash from `rainbow.txt`, as follows:
+
+        ```console
+        # Let's say we want to lookup daivd's password, we first find david's hash
+
+        $ grep david passwd_sha.txt 
+        david:6b3a55e0261b0304143f805a24924d0c1c44524821305f31d9277843b8a10f4e
+
+        # We now grep this hash from the rainbow.txt to find the original password
+        $ grep 6b3a55e0261b0304143f805a24924d0c1c44524821305f31d9277843b8a10f4e rainbow.txt
+        password:6b3a55e0261b0304143f805a24924d0c1c44524821305f31d9277843b8a10f4e
+
+        # Looks like david's password is 'password', let's test it against our q2.sh
+        $ curl --head david:password@localhost/cgi-bin/q2.sh
+        HTTP/1.1 200 OK
+        Date: Thu, 11 Jul 2024 20:22:48 GMT
+        Server: Apache/2.4.59 (Debian)
+        Vary: Accept-Encoding
+        Content-Type: text/plain
+
+        ```
+
+Write a script call q3.sh to recover all the passwords using the above concept.  Here's 
+the basic script structure to get your started:
+
+```bash
+#!/bin/bash
+
+for IDPASS in $(cat passwd_sha.txt)
+do
+    ID=$(echo $IDPASS | cut -f 1 -d ':')
+    HASH=$(echo $IDPASS | cut -f 2 -d ':')    
+
+    # This is where you crack the password by grepping the hash
+    PASSWORD=
+
+    echo -n "$ID:$PASSWORD"
+done
+```
 
 ## Q4
 To mitigate the "rainbow table" attack highlighted in Q3, passwords are usually "salted".
@@ -88,6 +137,42 @@ as follows:
 $1$vN2MROPo$7pZX4h7r2v1KrCJJ8ndAb/
 ```
 
-The file passwd_salted.txt contains passwords encrypted using `openssl passwd` as seen above.  Create a copy of your q2.sh 
-script and call it q4.sh, then modify q4.sh script to work with [passwd_salted.txt](passwd_salted.txt).
+There are numerous advantages in using salted passwords:
 
+  1. We can no longer find out if passwords have been reused, since each password hash is
+     unique with the injection of random salt.
+
+  1. We need to crach each password indiviaully, instead of creating a lookup table for 
+     password hashes (rainbow.txt)
+
+The file passwd_salted.txt contains passwords encrypted using `openssl passwd` as seen above.  
+Create a q4.sh that cracks all the passwords in [passwd_salted.txt](passwd_salted.txt).
+
+Below is a starter script:
+
+```bash
+#!/bin/bash
+
+# Cracking salted passwords
+
+# The pool of passwords comes from the first 100 common passwords
+PASSWORD_URL='https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Common-Credentials/10k-most-common.txt'
+COMMON_PASSWORDS=$(curl -s $PASSWORD_URL | head -n 100)
+
+# We now read the password file.  For each login, we try the sha256sum of each of the common password
+for IDPASS in $(cat passwd_salted.txt)
+do
+    ID=$(echo $IDPASS | cut -f 1 -d ':')
+    TARGET=$(echo $IDPASS | cut -f 2 -d ':')
+    SALT=$(echo $TARGET | cut -d '$' -f 3)    
+    for PASS in $COMMON_PASSWORDS
+    do
+	    # We need to create a SALTED version of each password
+        SALTED=
+	    if [[ "$SALTED" == "$TARGET" ]]
+	    then
+	        echo "$ID has the password $PASS"
+	    fi
+    done
+done
+```
