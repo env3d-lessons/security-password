@@ -66,16 +66,16 @@ However, since we are using a simple sha256sum, a hacker can perform a few types
     1.  To lookup a password for a user, we simply `grep` the user's hash from `rainbow.txt`, as follows:
 
         ```console
-        # Let's say we want to lookup daivd's password, we first find david's hash
+        $ # Let's say we want to lookup daivd's password, we first find david's hash
 
         $ grep david passwd_sha.txt 
         david:6b3a55e0261b0304143f805a24924d0c1c44524821305f31d9277843b8a10f4e
 
-        # We now grep this hash from the rainbow.txt to find the original password
+        $ # We now grep this hash from the rainbow.txt to find the original password
         $ grep 6b3a55e0261b0304143f805a24924d0c1c44524821305f31d9277843b8a10f4e rainbow.txt
         password:6b3a55e0261b0304143f805a24924d0c1c44524821305f31d9277843b8a10f4e
 
-        # Looks like david's password is 'password', let's test it against our q2.sh
+        $ # Looks like david's password is 'password', let's test it against our q2.sh
         $ curl --head david:password@localhost/cgi-bin/q2.sh
         HTTP/1.1 200 OK
         Date: Thu, 11 Jul 2024 20:22:48 GMT
@@ -110,7 +110,7 @@ The current best practice is to use the blowfish/bcrypt algorithm where the pass
 salt are generated together.  The openssl command will produce such a password for you.  
 You can run the openssl command as follows:
 
-```
+```console
 [ec2-user@ip-172-31-13-169 password-lessons]$ openssl passwd -1 12345
 $1$X4gWLB5H$MBKnn5VEYuyoN6cS7bQo2/
 
@@ -125,14 +125,16 @@ Notice how the output has different hash value for the same password?  That's be
 salt is integrated into the password hash itself.  The output string is delimited by the $ character and
 has the following format:
 
+```
 ${algorithm}${salt}${hash}
+```
 
 We use the algorithm "1" to encrypt passwords, and the salt value is randomly assigned.
 
 If we know the salt, we can verify a password by providing a specific salt value to openssl,
 as follows:
 
-```
+```console
 [ec2-user@ip-172-31-13-169 password-lessons]$ openssl passwd -1 -salt vN2MROPo 12345
 $1$vN2MROPo$7pZX4h7r2v1KrCJJ8ndAb/
 ```
