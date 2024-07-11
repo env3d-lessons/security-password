@@ -1,6 +1,13 @@
 # Password Management
 
-## Q1
+All exercises to be completed on codespaces inside the assignment repo directory.
+Web server configuration are all setup and the repo directory is mapped to
+
+```
+${CODESPACE_NAME}-80/cgi-bin/
+```
+
+# Q1
 Notice that for simplicity purposes, the script 
 [https://github.com/env3d/jwt-lessons/blob/main/02-hmac-token.sh](https://github.com/env3d/jwt-lessons/blob/main/02-hmac-token.sh)
 does not actually check for passwords.  In this exercise, we explore how passwords are stored.
