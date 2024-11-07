@@ -99,7 +99,7 @@ do
     # This is where you crack the password by grepping the hash
     PASSWORD=
 
-    echo -n "$ID:$PASSWORD"
+    echo "$ID:$PASSWORD"
 done
 ```
 
